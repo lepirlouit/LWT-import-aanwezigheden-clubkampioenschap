@@ -92,28 +92,31 @@ const getSundayNumber = (date) => {
  */
 const getTeamName = (teamNumber) => {
   if (teamNumber === 1) {
-    return 'A-ploeg'
+    return 'A-ploeg';
   }
   if (teamNumber === 3) {
-    return 'Tempo'
+    return 'Tempo';
   }
   if (teamNumber === 4) {
-    return 'Sportivo'
+    return 'Sportivo';
   }
   if (teamNumber === 5) {
-    return 'Cyclo'
+    return 'Cyclo';
   }
   if (teamNumber === 6) {
-    return 'Toeristen'
+    return 'Toeristen';
   }
   if (teamNumber === 7) {
-    return 'D-ploeg'
+    return 'D-ploeg';
   }
   if (teamNumber === 9) {
-    return 'Trappers'
+    return 'Trappers';
   }
   if (teamNumber === 10) {
-    return 'Moderato'
+    return 'Moderato';
+  }
+  if (teamNumber === 11) {
+    return 'Volgwagen';
   }
   throw new Error('Unhandled Team Number')
 };
@@ -123,7 +126,10 @@ const getTeamName = (teamNumber) => {
  * @param {string} teamName 
  * @param {string} date - format yyyy-mm-dd 
  */
-const getAantalKm = async (teamName, date) => { 
+const getAantalKm = async (teamName, date) => {
+  if (teamName === 'Volgwagen') {
+    return 0;
+  }
   const sql = "select z.afstand from zondagritten z where z.datum = ? AND z.ploeg = ?";
   
   const result = await connection.query(
