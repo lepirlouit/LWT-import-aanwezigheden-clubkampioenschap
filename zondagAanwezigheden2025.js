@@ -2,7 +2,7 @@ require('dotenv').config();
 const path = require('node:path');
 const fs = require('node:fs');
 const directoryPath = './scanners/';
-const filter = /20250309.*AANW.*\.TXT/;
+const filter = /20250518.*AANW.*\.TXT/;
 const mysql = require('mysql2/promise');
 
 const databaseConfigs = {
@@ -55,7 +55,7 @@ const parseFile = (filePath) => {
   const lines = content.split('\n').filter(l => l);
   return lines.map(line => {
     const [date, niss, teamNumberStr] = line.split(',');
-    return({date, niss, teamNumber: parseInt(teamNumberStr)});
+    return({line, date, niss, teamNumber: parseInt(teamNumberStr)});
   });
 }
 
@@ -70,8 +70,9 @@ const insertActiviteitenRecord = async ({ niss, isoDate, sundayNumber, aantalKm,
       "zondagrit", teamName, aantalKm, 10, `Z${sundayNumber}`, new Date()
     ],
   );
-  if (result[0].affectedRows !== 1) {
-    throw new Error(`User ${JSON.stringify(aanwezigheid)} not found in our database`)
+  if (result[0].affectedRows < 1) {
+    console.error(result)
+    throw new Error(`database error`)
   }  
 }
 
@@ -144,7 +145,6 @@ const handleScanningRecord = async ({ date, niss, teamNumber }) => {
   const isoDate = date.split('/').reverse().join('-');
   const aantalKm = await getAantalKm(teamName, isoDate);
   await insertActiviteitenRecord({niss, sundayNumber, aantalKm, teamName, isoDate});
-  // await updateAanwezigheidRecord({niss, sundayNumber, aantalKm});
 }
 
 
@@ -168,7 +168,7 @@ const handleScanningRecord = async ({ date, niss, teamNumber }) => {
         }
       }
     }
-    fs.writeFileSync("unhandledRecords.txt", unhandledRecords.map(r => [r.date, r.niss, r.teamNumber].join(',')).join('\n'));
+    fs.writeFileSync("unhandledRecords.txt", unhandledRecords.map(r => r.line).join('\n'));
     await connection.commit()
     // await connection.rollback();
   } catch (e) {
