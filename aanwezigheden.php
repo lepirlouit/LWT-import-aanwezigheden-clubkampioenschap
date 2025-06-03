@@ -101,6 +101,7 @@ function lwt_submit_form() {
 								$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
 								insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $wpdb);
 						} catch (Exception $e) {
+							// echo '<pre>' . $e . '</pre>';
 								$unhandledRecords[] = $line;
 						}
 				}
