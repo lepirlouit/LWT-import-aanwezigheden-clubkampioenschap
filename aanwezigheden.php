@@ -58,7 +58,7 @@ function cfp_get_team_names() {
 	];
 }
 
-function retrieve_data_and_insert_activity($niss, $date, $teamNumber, $comments, $wpdb, $unhandledRecords) {
+function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments, $wpdb, &$unhandledRecords) {
 	$teamNames = cfp_get_team_names();
 	$teamName = $teamNames[$teamNumber];
 	$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
@@ -110,7 +110,7 @@ function lwt_submit_form() {
 								continue;
 						}
 
-						retrieve_data_and_insert_activity($niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
+						retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
 				}
 				
 	
@@ -244,7 +244,12 @@ function cfp_render_form() {
 	</form>
 	<?php
 	if (isset($_GET['form']) && $_GET['form'] === 'submitted') {
-    echo '<div class="notice">Form submitted successfully!</div>';
+		if (empty($_GET['unhandledRecords'])) {
+			echo '<div class="success">✅ Aanwezigheid Toegevoegd.</div>';
+		} else {
+			echo '<div class="error">⚠️ Probleem:</div>';
+			echo '<pre>' . esc_html($_GET['unhandledRecords']) . '</pre>';
+		}
 	}
 	 return ob_get_clean();
 }
@@ -290,10 +295,11 @@ function cfp_handle_form_submission() {
 			return;
 		}
 		$unhandledRecords = [];
-		retrieve_data_and_insert_activity($niss, $date, $groep, $comments, $wpdb, $unhandledRecords);
+		$line = $date.','.$niss.','.$groep;
+		retrieve_data_and_insert_activity($line, $niss, $date, $groep, $comments, $wpdb, $unhandledRecords);
 		wp_redirect(add_query_arg(array(
 			'form' => 'submitted',
-			'unhandledRecords' => esc_url(implode("\n",$unhandledRecords)),
+			'unhandledRecords' => implode("\n",$unhandledRecords),
 		), $_SERVER['REQUEST_URI']));
 		exit;
 	}
