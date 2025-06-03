@@ -18,11 +18,10 @@ function lwt_uploader_callback() {
 
 	<form name="uploader" method="post" enctype="multipart/form-data">
 		<p>
-			<label>Select multiple files:</label><br>
+			<label>Select multiple files:</label><br/>
 			<input type="file" name="myfile[]" multiple accept=".txt" required>
 		</p>
-		<input type="hidden" name="lwt_upload" value="1" />
-		<input type="submit" name="upload_file" />
+		<button type="submit" name="lwt_upload" value="1">Aanwezigheden toevoegen</button>
 	</form>
 
 	<?php
@@ -45,20 +44,38 @@ function lwt_uploader_callback() {
 
 add_action( 'init', 'lwt_submit_form' );
 
+function cfp_get_team_names() {
+	return [
+			1 => 'A-ploeg',
+			3 => 'Tempo',
+			4 => 'Sportivo',
+			5 => 'Cyclo',
+			6 => 'Toeristen',
+			7 => 'D-ploeg',
+			9 => 'Trappers',
+			10 => 'Moderato',
+			11 => 'Volgwagen'
+	];
+}
+
+function retrieve_data_and_insert_activity($niss, $date, $teamNumber, $comments, $wpdb, $unhandledRecords) {
+	$teamNames = cfp_get_team_names();
+	$teamName = $teamNames[$teamNumber];
+	$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
+	$sundayNumber = get_sunday_number($date);
+
+	try {
+			$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
+			insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb);
+	} catch (Exception $e) {
+		// echo '<pre>' . $e . '</pre>';
+			$unhandledRecords[] = $line;
+	}
+}
 function lwt_submit_form() {
   global $wpdb;
+	$teamNames = cfp_get_team_names();
 
-  $teamNames = [
-    1 => 'A-ploeg',
-    3 => 'Tempo',
-    4 => 'Sportivo',
-    5 => 'Cyclo',
-    6 => 'Toeristen',
-    7 => 'D-ploeg',
-    9 => 'Trappers',
-    10 => 'Moderato',
-    11 => 'Volgwagen'
-  ];
 
   $unhandledRecords = [];
 
@@ -92,18 +109,8 @@ function lwt_submit_form() {
 								$unhandledRecords[] = $line;
 								continue;
 						}
-	
-						$teamName = $teamNames[$teamNumber];
-						$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
-						$sundayNumber = get_sunday_number($date);
-	
-						try {
-								$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
-								insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $wpdb);
-						} catch (Exception $e) {
-							// echo '<pre>' . $e . '</pre>';
-								$unhandledRecords[] = $line;
-						}
+
+						retrieve_data_and_insert_activity($niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
 				}
 				
 	
@@ -140,7 +147,7 @@ function get_aantal_km($teamName, $date, $wpdb) {
 	return intval($result);
 }
 
-function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $wpdb) {
+function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb) {
 	$title = 'Z' . $sundayNumber;
 	$now = current_time('mysql');
 	$data = [
@@ -151,6 +158,7 @@ function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber,
 			'kilometers' => $aantalKm,
 			'punten' => 10,
 			'title' => $title,
+			'opmerkingen' => $comments,
 			'created_at' => $now,
 			'updated_at' => $now,
 	];
@@ -174,4 +182,142 @@ function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber,
 	if ($wpdb->last_error) {
 			throw new Exception($wpdb->last_error);
 	}
+}
+
+/****** Custom Form *****/
+
+add_shortcode('custom_form', 'cfp_render_form');
+
+function cfp_enqueue_scripts() {
+	wp_enqueue_script('jquery-ui-datepicker');
+	wp_enqueue_style('jquery-ui-css', '//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css');
+	wp_enqueue_script('cfp-custom-js', plugin_dir_url(__FILE__) . 'form.js', ['jquery'], null, true);
+	// wp_localize_script('cfp-custom-js', 'cfp_ajax', ['ajax_url' => admin_url('admin-ajax.php')]);
+}
+add_action('wp_enqueue_scripts', 'cfp_enqueue_scripts');
+
+function cfp_render_form() {
+	$teamNames = cfp_get_team_names();
+	// Get users with meta 'niss'
+	$users = get_users([
+			'orderby' => 'display_name',
+			'order' => 'ASC',
+	]);
+
+	ob_start(); ?>
+	<form id="cfp-form" method="POST" ac >
+	<?php wp_nonce_field('cfp_submit_form_action', 'cfp_nonce'); ?>
+		<p>
+			<label for="cfp-name">Naam:</label><br/>
+			<select id="cfp-name" name="name">
+					<option value="">Select a name</option>
+					<?php foreach ($users as $user): ?>
+							<option value="<?= esc_attr($user->rijksregisternummer) ?>"><?= esc_html($user->display_name) ?> (<?= esc_html($user->rijksregisternummer) ?>)</option>
+					<?php endforeach; ?>
+			</select>
+		</p>
+
+		<p id="cfp-niss-container" style="margin-top: 10px; display:none;">
+				<label for="cfp-niss">Rijksregisternummer:</label><br/>
+				<input type="text" id="cfp-niss" name="niss" readonly>
+				</p>
+		<p>
+			<label for="cfp-date">Datum:</label><br/>
+			<input type="text" id="cfp-date" name="date" autocomplete="off">
+		</p>
+		<p>
+			<label for="cfp-groep">Groep:</label><br/>
+			<select id="cfp-groep" name="groep">
+					<option value="">Select a Team</option> 
+					<?php foreach ($teamNames as $id => $name): ?>
+						<option value="<?= esc_attr($id) ?>"><?= esc_html($name) ?></option>
+					<?php endforeach; ?>
+			</select>
+		</p>
+		<p>
+			<label for="cfp-comments">Opmerkingen:</label><br/>
+			<textarea id="cfp-comments" name="comments" rows="4" cols="40" maxlength="1000"></textarea>
+			<small id="comment-counter">0 / 1000</small>
+		</p>
+
+		<button type="submit" name="lwt_custom_form" value="1">Aanwezigheid toevoegen</button>
+	</form>
+	<?php
+	if (isset($_GET['form']) && $_GET['form'] === 'submitted') {
+    echo '<div class="notice">Form submitted successfully!</div>';
+	}
+	 return ob_get_clean();
+}
+
+add_action('init', 'cfp_handle_form_submission');
+
+function cfp_handle_form_submission() {
+  global $wpdb;
+	$teamNames = cfp_get_team_names();
+	if (
+		isset($_POST['lwt_custom_form']) &&
+		isset($_POST['cfp_nonce']) &&
+		wp_verify_nonce($_POST['cfp_nonce'], 'cfp_submit_form_action')
+	) {
+		$errors = [];
+
+		$name = isset($_POST['name']) ? intval($_POST['name']) : 0;
+		$niss = sanitize_text_field($_POST['niss'] ?? '');
+		$date    = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+		$groep   = isset($_POST['groep']) ? intval($_POST['groep']) : 0;
+		$comments = isset($_POST['comments']) ? sanitize_textarea_field($_POST['comments']) : '';
+
+		if ($name <= 0) {
+			$errors[] = 'Gelieve een naam te selecteren..';
+		}
+
+		if (!is_valid_niss($niss)) {
+			$errors[] = 'Ongeldig NISS-nummer. Controleer of het 11 cijfers bevat en correct is.';
+	}
+
+		if (!preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $date)) {
+				$errors[] = 'Please enter a valid date.';
+		}
+
+		if ($groep <= 0 || !array_key_exists($groep, $teamNames)) {
+				$errors[] = 'Invalid group selected.';
+		}
+
+		if (!empty($errors)) {
+			foreach ($errors as $error) {
+					echo '<div class="cfp-error" style="color:red;">' . esc_html($error) . '</div>';
+			}
+			return;
+		}
+		$unhandledRecords = [];
+		retrieve_data_and_insert_activity($niss, $date, $groep, $comments, $wpdb, $unhandledRecords);
+		wp_redirect(add_query_arg(array(
+			'form' => 'submitted',
+			'unhandledRecords' => esc_url(implode("\n",$unhandledRecords)),
+		), $_SERVER['REQUEST_URI']));
+		exit;
+	}
+}
+
+function is_valid_niss($niss) {
+	// Alleen cijfers, 11 lang?
+	if (!preg_match('/^\d{11}$/', $niss)) {
+			return false;
+	}
+
+	$base = substr($niss, 0, 9);
+	$checksum = substr($niss, 9, 2);
+
+	// Mogelijkheid 1: geboren voor 2000
+	$expected1 = 97 - (intval($base) % 97);
+
+	if ((int)$checksum === $expected1) {
+			return true;
+	}
+
+	// Mogelijkheid 2: geboren vanaf 2000 → voeg '2' toe vooraan
+	$base2000 = '2' . $base;
+	$expected2 = 97 - (intval($base2000) % 97);
+
+	return (int)$checksum === $expected2;
 }
