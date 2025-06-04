@@ -30,12 +30,19 @@ function lwt_uploader_callback() {
 	delete_transient('scanner_feedback');
 	if (isset( $_POST['lwt_upload'] )){
 
-		if (empty($feedback)) {
+		if (empty($feedback["unhandledRecords"])) {
 			echo '<div class="success">✅ All files processed successfully.</div>';
 		} else {
 			echo '<div class="error">⚠️ Some lines could not be handled:</div>';
-			echo '<pre>' . esc_html($feedback) . '</pre>';
+			echo '<pre>' . esc_html($feedback["unhandledRecords"]) . '</pre>';
 		}
+		if (!empty($feedback["globalStats"])) {
+			echo '<div class="summary"><strong>📊 Summary:</strong><ul>';
+			foreach ($feedback["globalStats"] as $team => $count) {
+					echo '<li>' . esc_html($team) . ': ' . intval($count) . ' scans</li>';
+			}
+			echo '</ul></div>';
+	  }
 	}
 
 	return ob_get_clean();
@@ -78,6 +85,7 @@ function lwt_submit_form() {
 
 
   $unhandledRecords = [];
+	$stats = [];
 
 	if ( isset( $_POST['lwt_upload'] ) ) {
 		$files = $_FILES['myfile'];
@@ -99,25 +107,31 @@ function lwt_submit_form() {
 	
 				$lines = file($uploaded_file['file'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 				foreach ($lines as $line) {
-						$parts = explode(',', $line);
-						if (count($parts) !== 3) continue;
-	
-						[$date, $niss, $teamNumber] = $parts;
-						$teamNumber = intval($teamNumber);
-	
-						if (!isset($teamNames[$teamNumber])) {
-								$unhandledRecords[] = $line;
-								continue;
-						}
+					$parts = explode(',', $line);
+					if (count($parts) !== 3) continue;
 
-						retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
+					[$date, $niss, $teamNumber] = $parts;
+					$teamNumber = intval($teamNumber);
+
+					if (!isset($teamNames[$teamNumber])) {
+							$unhandledRecords[] = $line;
+							continue;
+					}
+
+					retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
+
+					$teamName=$teamNames[$teamNumber];
+					if (!isset($stats[$teamName])) {
+						$stats[$teamName] = 0;
+					}
+					$stats[$teamName]++;
 				}
 				
 	
 	
 			}
 		}
-		set_transient( 'scanner_feedback' , implode("\n", $unhandledRecords) );
+		set_transient( 'scanner_feedback' , ["unhandledRecords" => implode("\n", $unhandledRecords), "globalStats" => $stats] );
 		// wp_redirect($_SERVER['REQUEST_URI']);
 		// exit;
 	}
