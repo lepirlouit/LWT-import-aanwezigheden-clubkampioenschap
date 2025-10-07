@@ -157,7 +157,7 @@ function get_aantal_km($teamName, $date, $wpdb) {
 			)
 	);
 
-	if ($result === null) throw new Exception('Afstand not found');
+	if ($result === null) return 0;
 	return intval($result);
 }
 
