@@ -212,21 +212,18 @@ add_action('wp_enqueue_scripts', 'cfp_enqueue_scripts');
 
 function cfp_render_form() {
 	$teamNames = cfp_get_team_names();
-	// Get users with meta 'niss'
-	$users = get_users([
-			'orderby' => 'display_name',
-			'order' => 'ASC',
-	]);
+
+	$users = $wpdb->get_results("SELECT rijksregisternummer, vollnaam FROM ledenlijst");
 
 	ob_start(); ?>
-	<form id="cfp-form" method="POST" ac >
+	<form id="cfp-form" method="POST">
 	<?php wp_nonce_field('cfp_submit_form_action', 'cfp_nonce'); ?>
 		<p>
 			<label for="cfp-name">Naam:</label><br/>
 			<select id="cfp-name" name="name">
 					<option value="">Select a name</option>
 					<?php foreach ($users as $user): ?>
-							<option value="<?= esc_attr($user->rijksregisternummer) ?>"><?= esc_html($user->display_name) ?> (<?= esc_html($user->rijksregisternummer) ?>)</option>
+							<option value="<?= esc_attr($user->rijksregisternummer) ?>"><?= esc_html($user->vollnaam) ?> (<?= esc_html($user->rijksregisternummer) ?>)</option>
 					<?php endforeach; ?>
 			</select>
 		</p>
