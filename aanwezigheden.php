@@ -65,19 +65,20 @@ function cfp_get_team_names() {
 	];
 }
 
-function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments, $wpdb, &$unhandledRecords) {
+function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments, $wpdb) {
 	$teamNames = cfp_get_team_names();
-	$teamName = $teamNames[$teamNumber];
+	if (!isset($teamNames[$teamNumber])) {
+		$teamName = "unknown";
+		$aantalKm = 0;
+	} else {
+		$teamName = $teamNames[$teamNumber];
+		$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
+	}
 	$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
 	$sundayNumber = get_sunday_number($date);
+	
+	insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb);
 
-	try {
-			$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
-			insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb);
-	} catch (Exception $e) {
-		// echo '<pre>' . $e . '</pre>';
-			$unhandledRecords[] = $line;
-	}
 }
 function lwt_submit_form() {
   global $wpdb;
@@ -112,15 +113,17 @@ function lwt_submit_form() {
 
 					[$date, $niss, $teamNumber] = $parts;
 					$teamNumber = intval($teamNumber);
-
-					if (!isset($teamNames[$teamNumber])) {
-							$unhandledRecords[] = $line;
-							continue;
+					$cleanNiss = substr($niss, 0, 11);
+					try{
+						retrieve_data_and_insert_activity($line, $cleanNiss, $date, $teamNumber, "", $wpdb);
+					} catch (Exception $e) {
+						$unhandledRecords[] = $line;
 					}
-
-					retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, "", $wpdb, $unhandledRecords);
-
-					$teamName=$teamNames[$teamNumber];
+					if (!isset($teamNames[$teamNumber])) {
+						$teamName='unknown';
+					} else {
+						$teamName=$teamNames[$teamNumber];
+					}
 					if (!isset($stats[$teamName])) {
 						$stats[$teamName] = 0;
 					}
@@ -308,7 +311,11 @@ function cfp_handle_form_submission() {
 		}
 		$unhandledRecords = [];
 		$line = $date.','.$niss.','.$groep;
-		retrieve_data_and_insert_activity($line, $niss, $date, $groep, $comments, $wpdb, $unhandledRecords);
+		try{
+			retrieve_data_and_insert_activity($line, $niss, $date, $groep, $comments, $wpdb);
+		} catch (Exception $e) {
+			$errors[] = 'Error on insert : <pre>' . $e . '</pre>';
+		}
 		wp_redirect(add_query_arg(array(
 			'form' => 'submitted',
 			'unhandledRecords' => implode("\n",$unhandledRecords),
