@@ -211,6 +211,7 @@ function cfp_enqueue_scripts() {
 add_action('wp_enqueue_scripts', 'cfp_enqueue_scripts');
 
 function cfp_render_form() {
+  global $wpdb;
 	$teamNames = cfp_get_team_names();
 
 	$users = $wpdb->get_results("SELECT rijksregisternummer, vollnaam FROM ledenlijst");
