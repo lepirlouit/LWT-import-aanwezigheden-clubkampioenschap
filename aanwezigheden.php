@@ -68,7 +68,7 @@ function cfp_get_team_names() {
 function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments, $wpdb) {
 	$teamNames = cfp_get_team_names();
 	if (!isset($teamNames[$teamNumber])) {
-		$teamName = "unknown";
+		$teamName = "onbekend";
 		$aantalKm = 0;
 	} else {
 		$teamName = $teamNames[$teamNumber];
@@ -120,7 +120,7 @@ function lwt_submit_form() {
 						$unhandledRecords[] = $line;
 					}
 					if (!isset($teamNames[$teamNumber])) {
-						$teamName='unknown';
+						$teamName='onbekend';
 					} else {
 						$teamName=$teamNames[$teamNumber];
 					}
@@ -217,7 +217,7 @@ function cfp_render_form() {
   global $wpdb;
 	$teamNames = cfp_get_team_names();
 
-	$users = $wpdb->get_results("SELECT rijksregisternummer, vollnaam FROM ledenlijst");
+	$users = $wpdb->get_results("SELECT rijksregisternummer, vollnaam FROM ledenlijst ORDER BY vollnaam");
 
 	ob_start(); ?>
 	<form id="cfp-form" method="POST">
