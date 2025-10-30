@@ -5,7 +5,8 @@ jQuery(document).ready(function($) {
     });
 
     var POINTS_RATE = 0.05;
-    var formatEuros = (amount) => new Intl.NumberFormat("be-NL", { style: "currency", currency: "EUR" }).format(amount);
+    var formatEuros = (amount) => new Intl.NumberFormat("nl-BE", { style: "currency", currency: "EUR" }).format(amount);
+    var formatDate = (dateStr) => new Intl.DateTimeFormat("nl-BE",{ dateStyle: "short", timeStyle: 'short' }).format(new Date(dateStr));
     $('#punten-gebruik-name').on('change', function () {
         $('#punten-gebruik-points').hide();
         $('#punten-gebruik-amount-description').hide();
@@ -36,7 +37,7 @@ jQuery(document).ready(function($) {
                     tbody.empty();
                     if (response.records && response.records.length > 0) {
                         $.each(response.records, function(index, record) {
-                            var row = '<tr><td>' + record.datum + '</td><td>' + record.titel + '</td><td>' + record.punten + '</td><td>' + formatEuros(record.bedrag) + '</td></tr>';
+                            var row = '<tr><td>' + formatDate(record.datum) + '</td><td>' + record.titel + '</td><td>' + record.punten + '</td><td>' + formatEuros(record.bedrag) + '</td></tr>';
                             tbody.append(row);
                         });
                         $('#punten-gebruik-records').show();
