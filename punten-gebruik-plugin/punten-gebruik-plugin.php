@@ -9,6 +9,7 @@
  **/
 
 add_shortcode('punten_gebruik_form', 'punten_gebruik_form_callback');
+add_shortcode('punten_gebruik_overzicht', 'punten_gebruik_overzicht_callback');
 
 function punten_gebruik_form_callback() {
     if (!current_user_can('administrator')) {
@@ -73,6 +74,68 @@ function punten_gebruik_form_callback() {
         </div>
 
     </form>
+    <?php
+
+    return ob_get_clean();
+}
+
+function punten_gebruik_overzicht_callback() {
+    if (!is_user_logged_in()) {
+        return '<p>Je moet ingelogd zijn om je punten te bekijken.</p>';
+    }
+
+    global $wpdb;
+
+    $user_id = get_current_user_id();
+    $niss = $wpdb->get_var($wpdb->prepare("SELECT rijksregisternummer FROM lwt_users WHERE Id = %d", $user_id));
+
+    if (!$niss) {
+        return '<p>Geen rijksregisternummer gevonden voor deze gebruiker.</p>';
+    }
+
+    // Get available points
+    $available = $wpdb->get_var($wpdb->prepare("SELECT SUM(punten) FROM punten_gebruik WHERE rijksregisternummer = %s", $niss));
+    if (!$available) $available = 0;
+
+    // Get records
+    $records = $wpdb->get_results($wpdb->prepare("SELECT datum, punten, titel, bedrag FROM punten_gebruik WHERE rijksregisternummer = %s ORDER BY datum DESC", $niss));
+
+    ob_start();
+    ?>
+    <div id="punten-gebruik-overzicht">
+        <p>
+            <label>Beschikbare Punten:</label><br/>
+            <span id="available-points"><?php echo esc_html($available); ?> (<?php echo esc_html(number_format($available * 0.05, 2, ',', '.')); ?> €)</span>
+        </p>
+
+        <h3>Punten Geschiedenis</h3>
+        <table id="records-table" border="1">
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Wat</th>
+                    <th>Punten</th>
+                    <th>Bedrag</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($records): ?>
+                    <?php foreach ($records as $record): ?>
+                        <tr>
+                            <td><?php echo esc_html(date('d/m/Y H:i', strtotime($record->datum))); ?></td>
+                            <td><?php echo esc_html($record->titel); ?></td>
+                            <td><?php echo esc_html($record->punten); ?></td>
+                            <td><?php echo esc_html(number_format($record->bedrag, 2, ',', '.')); ?> €</td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="4">Geen records gevonden.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
     <?php
 
     return ob_get_clean();
