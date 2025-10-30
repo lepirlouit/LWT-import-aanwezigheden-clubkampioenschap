@@ -11,6 +11,10 @@
 add_shortcode('punten_gebruik_form', 'punten_gebruik_form_callback');
 
 function punten_gebruik_form_callback() {
+    if (!current_user_can('administrator')) {
+        return '<p>Je hebt geen toestemming om deze functie te gebruiken.</p>';
+    }
+
     global $wpdb;
 
     ob_start();
@@ -92,6 +96,10 @@ add_action('wp_ajax_get_available_points', 'get_available_points');
 add_action('wp_ajax_nopriv_get_available_points', 'get_available_points');
 
 function get_available_points() {
+    if (!current_user_can('administrator')) {
+        wp_die('Je hebt geen toestemming om deze actie uit te voeren.');
+    }
+
     global $wpdb;
 
     $niss = sanitize_text_field($_POST['niss']);
@@ -111,9 +119,13 @@ function get_available_points() {
 add_action('init', 'punten_gebruik_handle_form');
 
 function punten_gebruik_handle_form() {
+    
     global $wpdb;
-
+    
     if (isset($_POST['punten_gebruik_submit']) && isset($_POST['punten_gebruik_nonce']) && wp_verify_nonce($_POST['punten_gebruik_nonce'], 'punten_gebruik_submit_action')) {
+        if (!current_user_can('administrator')) {
+            wp_die('Je hebt geen toestemming om deze actie uit te voeren.');
+        }
         $niss = sanitize_text_field($_POST['name']);
         $amount = floatval($_POST['amount']);
         $description = sanitize_text_field($_POST['description'] ?? '');
