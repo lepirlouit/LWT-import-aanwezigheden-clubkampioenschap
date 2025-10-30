@@ -65,19 +65,19 @@ function cfp_get_team_names() {
 	];
 }
 
-function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments, $wpdb) {
+function retrieve_data_and_insert_activity($line, $niss, $date, $teamNumber, $comments) {
 	$teamNames = cfp_get_team_names();
+	$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
 	if (!isset($teamNames[$teamNumber])) {
 		$teamName = "onbekend";
 		$aantalKm = 0;
 	} else {
 		$teamName = $teamNames[$teamNumber];
-		$aantalKm = get_aantal_km($teamName, $isoDate, $wpdb);
+		$aantalKm = get_aantal_km($teamName, $isoDate);
 	}
-	$isoDate = DateTime::createFromFormat('d/m/Y', $date)->format('Y-m-d');
 	$sundayNumber = get_sunday_number($date);
 	
-	insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb);
+	insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments);
 
 }
 function lwt_submit_form() {
@@ -115,7 +115,7 @@ function lwt_submit_form() {
 					$teamNumber = intval($teamNumber);
 					$cleanNiss = substr($niss, 0, 11);
 					try{
-						retrieve_data_and_insert_activity($line, $cleanNiss, $date, $teamNumber, "", $wpdb);
+						retrieve_data_and_insert_activity($line, $cleanNiss, $date, $teamNumber, "");
 					} catch (Exception $e) {
 						$unhandledRecords[] = $line;
 					}
@@ -150,7 +150,8 @@ function get_sunday_number($date) {
 	return str_pad($weeks, 2, '0', STR_PAD_LEFT);
 }
 
-function get_aantal_km($teamName, $date, $wpdb) {
+function get_aantal_km($teamName, $date) {
+  global $wpdb;
 	if ($teamName === 'Volgwagen') return 0;
 
 	$result = $wpdb->get_var(
@@ -164,7 +165,8 @@ function get_aantal_km($teamName, $date, $wpdb) {
 	return intval($result);
 }
 
-function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments, $wpdb) {
+function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber, $comments) {
+  global $wpdb;
 	$title = 'Z' . $sundayNumber;
 	$now = current_time('mysql');
 	$data = [
@@ -312,9 +314,9 @@ function cfp_handle_form_submission() {
 		$unhandledRecords = [];
 		$line = $date.','.$niss.','.$groep;
 		try{
-			retrieve_data_and_insert_activity($line, $niss, $date, $groep, $comments, $wpdb);
+			retrieve_data_and_insert_activity($line, $niss, $date, $groep, $comments);
 		} catch (Exception $e) {
-			$errors[] = 'Error on insert : <pre>' . $e . '</pre>';
+			$unhandledRecords[] = $line;
 		}
 		wp_redirect(add_query_arg(array(
 			'form' => 'submitted',
