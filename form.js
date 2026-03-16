@@ -17,6 +17,10 @@ jQuery(document).ready(function ($) {
   $('#cfp-date').datepicker({
     dateFormat: "dd/mm/yy",
   });
+  $('#cfp-name').select2({
+    placeholder: 'Selecteer een naam',
+    allowClear: true
+  });
 
   $('#cfp-name').on('change', function () {
     const userId = $(this).val();

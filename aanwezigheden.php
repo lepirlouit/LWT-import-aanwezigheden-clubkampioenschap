@@ -208,10 +208,13 @@ function insert_activiteit($isoDate, $niss, $teamName, $aantalKm, $sundayNumber,
 add_shortcode('custom_form', 'cfp_render_form');
 
 function cfp_enqueue_scripts() {
+    wp_enqueue_style('select2-css', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css');
+    wp_enqueue_script('select2-js', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', ['jquery'], null, true);
 	wp_enqueue_script('jquery-ui-datepicker');
 	wp_enqueue_style('jquery-ui-css', '//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css');
-	wp_enqueue_script('cfp-custom-js', plugin_dir_url(__FILE__) . 'form.js', ['jquery'], null, true);
+	wp_enqueue_script('cfp-custom-js', plugin_dir_url(__FILE__) . 'form.js', ['jquery', 'select2-js'], null, true);
 	// wp_localize_script('cfp-custom-js', 'cfp_ajax', ['ajax_url' => admin_url('admin-ajax.php')]);
+    wp_add_inline_style('select2-css', '.spinner { background: url(' . admin_url('images/spinner.gif') . ') no-repeat; background-size: 20px 20px; display: inline-block; width: 20px; height: 20px; }');
 }
 add_action('wp_enqueue_scripts', 'cfp_enqueue_scripts');
 
