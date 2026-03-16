@@ -143,11 +143,11 @@ function lwt_submit_form() {
 
 
 function get_sunday_number($date) {
-	$dateObj = DateTime::createFromFormat('d/m/Y', $date);
-	$base = new DateTime('2025-01-01');
-	$diff = $base->diff($dateObj)->days;
-	$weeks = floor($diff / 7) - 7;
-	return str_pad($weeks, 2, '0', STR_PAD_LEFT);
+    $ts = strtotime(str_replace('/', '-', $date));
+    $year = date('Y', $ts);
+    $firstSunday = strtotime("first sunday of march $year");
+    $weeks = floor(($ts - $firstSunday) / (7 * 86400)) + 1;
+    return str_pad($weeks, 2, '0', STR_PAD_LEFT);
 }
 
 function get_aantal_km($teamName, $date) {
