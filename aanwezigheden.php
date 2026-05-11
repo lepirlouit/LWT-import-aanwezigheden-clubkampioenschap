@@ -42,10 +42,103 @@ function lwt_uploader_callback() {
 		}
 	}
 
+	// --- Scannings section ---
+	global $wpdb;
+	$convert_feedback = get_transient('scanning_convert_feedback');
+	delete_transient('scanning_convert_feedback');
+	if ($convert_feedback) {
+		$total = array_sum($convert_feedback['per_team']);
+		$team_parts = [];
+		foreach ($convert_feedback['per_team'] as $team => $cnt) {
+			$team_parts[] = esc_html($team) . ': ' . $cnt;
+		}
+		$detail = !empty($team_parts) ? ' (' . implode(', ', $team_parts) . ')' : '';
+		echo '<div class="success">✅ ' . $total . ' scanning(s) omgezet' . $detail . '.</div>';
+		if (!empty($convert_feedback['errors'])) {
+			echo '<div class="error">⚠️ Mislukt voor:<br><pre>' . esc_html(implode("\n", $convert_feedback['errors'])) . '</pre></div>';
+		}
+	}
+
+	$scan_rows = $wpdb->get_results(
+		"SELECT DATE(moment) AS day, team, COUNT(*) AS cnt FROM scannings GROUP BY day, team ORDER BY day ASC, team ASC"
+	);
+
+	// Re-index by day
+	$scan_days = [];
+	foreach ($scan_rows as $row) {
+		$scan_days[$row->day]['total'] = ($scan_days[$row->day]['total'] ?? 0) + intval($row->cnt);
+		$scan_days[$row->day]['teams'][$row->team] = intval($row->cnt);
+	}
+
+	if (!empty($scan_days)) {
+		echo '<h3>Scannings omzetten</h3>';
+		echo '<table><thead><tr><th>Datum</th><th># Scans</th><th>Per ploeg</th><th></th></tr></thead><tbody>';
+		foreach ($scan_days as $day => $data) {
+			$display = esc_html(date('d/m/Y', strtotime($day)));
+			$team_parts = [];
+			foreach ($data['teams'] as $team => $cnt) {
+				$team_parts[] = esc_html($team) . ': ' . $cnt;
+			}
+			echo '<tr>';
+			echo '<td>' . $display . '</td>';
+			echo '<td>' . $data['total'] . '</td>';
+			echo '<td>' . implode(', ', $team_parts) . '</td>';
+			echo '<td><form method="POST">';
+			echo '<input type="hidden" name="lwt_convert_date" value="' . esc_attr($day) . '">';
+			wp_nonce_field('lwt_convert_' . $day, 'lwt_convert_nonce');
+			echo '<button type="submit">Converteren</button>';
+			echo '</form></td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table>';
+	}
+
 	return ob_get_clean();
 }
 
 add_action( 'init', 'lwt_submit_form' );
+add_action( 'init', 'lwt_convert_scanning_day' );
+
+function lwt_convert_scanning_day() {
+	global $wpdb;
+	if (!isset($_POST['lwt_convert_date']) || !isset($_POST['lwt_convert_nonce'])) {
+		return;
+	}
+
+	$date = sanitize_text_field($_POST['lwt_convert_date']);
+	if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+		return;
+	}
+
+	if (!wp_verify_nonce($_POST['lwt_convert_nonce'], 'lwt_convert_' . $date)) {
+		return;
+	}
+
+	$scannings = $wpdb->get_results(
+		$wpdb->prepare("SELECT * FROM scannings WHERE DATE(moment) = %s", $date)
+	);
+
+	$per_team = [];
+	$errors   = [];
+
+	foreach ($scannings as $scanning) {
+		$displayDate = date('d/m/Y', strtotime($scanning->moment));
+		$teamName    = $scanning->team;
+		$aantalKm    = get_aantal_km($teamName, $date);
+		$sundayNr    = get_sunday_number($displayDate);
+		try {
+			insert_activiteit($date, $scanning->niss, $teamName, $aantalKm, $sundayNr, '');
+			$wpdb->delete('scannings', ['id' => $scanning->id]);
+			$per_team[$teamName] = ($per_team[$teamName] ?? 0) + 1;
+		} catch (Exception $e) {
+			$errors[] = $scanning->niss;
+		}
+	}
+
+	set_transient('scanning_convert_feedback', ['per_team' => $per_team, 'errors' => $errors]);
+	wp_redirect($_SERVER['REQUEST_URI']);
+	exit;
+}
 
 function cfp_get_team_names() {
 	return [
